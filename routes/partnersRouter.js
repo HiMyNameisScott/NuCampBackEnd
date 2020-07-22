@@ -1,52 +1,97 @@
-const express = require('express');
-const bodyParser = require('body-parser');
+const express = require("express");
+const bodyParser = require("body-parser");
+const Partner = require("../models/partners");
+const authenticate = require("../authenticate");
 
-const partnersRouter = express.Router();
+const partnerRouter = express.Router();
 
-partnersRouter.use(bodyParser.json());
+partnerRouter.use(bodyParser.json());
 
-partnersRouter.route('/')
-.all((req, res, next) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    next();
-})
-.get((req, res) => {
-    res.end('Will send all the partners to you');
-})
-.post((req, res) => {
-    res.end(`Will add the campsite: ${req.body.name} with description: ${req.body.description}`);
-})
-.put((req, res) => {
+partnerRouter.route("/")
+  .get((req, res, next) => {
+    Partner.find()
+      .then((partners) => {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.json(partners);
+      })
+      .catch((err) => next(err));
+  })
+  .post(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
+    console.log(req.body);
+    Partner.create(req.body)
+      .then((partner) => {
+        console.log("Partner Created ", partner);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.json(partner);
+      })
+      .catch((err) => {
+        console.log(err);
+        next(err);
+      });
+  })
+  .put(authenticate.verifyUser, (req, res) => {
     res.statusCode = 403;
-    res.end('PUT operation not supported on /partners');
-})
-.delete((req, res) => {
-    res.end('Deleting all partners');
-});
+    res.end("PUT operation not supported on /partners");
+  })
+  .delete(
+    authenticate.verifyUser,
+    authenticate.verifyAdmin,
+    (req, res, next) => {
+      Partner.deleteMany()
+        .then((response) => {
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json");
+          res.json(response);
+        })
+        .catch((err) => next(err));
+    }
+  );
 
-
-
-partnersRouter.route('/:partnersId')
-.all((req, res, next) => {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-    next();
-})
-.get((req, res) => {
-    res.end(`ill send all the information for partner: ${req.params.partnersId}`);
-})
-.post((req, res) => {
+partnerRouter.route("/:partnerId")
+  .get((req, res, next) => {
+    Partner.findById(req.params.partnerId)
+      .then((partner) => {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.json(partner);
+      })
+      .catch((err) => next(err));
+  })
+  .post(authenticate.verifyUser, (req, res) => {
     res.statusCode = 403;
-    res.end(`POST operation not supported on /partners/${req.params.partnersId}`);
-})
-.put((req, res) => {
-    res.write(`Updating the campsite: ${req.params.partnersId}\n`);
-    res.end(`Will update the campsite: ${req.body.name}
-        with description: ${req.body.description}`)
-})
-.delete((req, res) => {
-    res.end(`Deleting partner: ${req.params.partnersId}`);
-});
+    res.end(
+      `POST operation not supported on /partners/${req.params.partnerId}`
+    );
+  })
+  .put(authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
+    Partner.findByIdAndUpdate(
+      req.params.partnerId,
+      {
+        $set: req.body,
+      },
+      { new: true }
+    )
+      .then((partner) => {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/json");
+        res.json(partner);
+      })
+      .catch((err) => next(err));
+  })
+  .delete(
+    authenticate.verifyUser,
+    authenticate.verifyAdmin,
+    (req, res, next) => {
+      Partner.findByIdAndDelete(req.params.partnerId)
+        .then((response) => {
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json");
+          res.json(response);
+        })
+        .catch((err) => next(err));
+    }
+  );
 
-module.exports = partnersRouter
+module.exports = partnerRouter;
